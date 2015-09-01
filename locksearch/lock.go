@@ -5,8 +5,10 @@ import (
 	"maglogparser/locksearch/record"
 	"maglogparser/locksearch/window"
 	"maglogparser/utils"
+	"os"
 	"sort"
 	"sync"
+	"text/tabwriter"
 	"time"
 )
 
@@ -28,9 +30,17 @@ type ResultMap struct {
 	m []statRecord
 }
 
-func statLock(onlyCmd bool) {
+func statLock(onlyCmd bool, setWindow bool) {
 
 	result := statThreadID()
+
+	start := time.Unix(0, 0)
+	end := time.Now().Add(24 * time.Hour)
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
+
+	fmt.Fprintln(w, "Time\tTID\tWait\tTill\tCommand\tStart\tEnd\tDuration\t")
 
 	for _, stat := range result {
 
@@ -57,9 +67,25 @@ func statLock(onlyCmd bool) {
 			duration = fmt.Sprintf("%f", stat.rcmdCompleted.Time.Sub(stat.rcmd.Time).Seconds())
 		}
 
-		fmt.Printf("%s --> TID%s : wait %f till %s for %s since %s to finish at %s duration %s\n", stat.r.Time.Format(utils.DateFormat), stat.tid, max.Seconds(), stat.r.NextByThread.Time.Format(utils.DateFormat), cmd, cmdTime, cmdCompleteTime, duration)
+		if stat.r.Time.After(start) {
+			start = stat.r.Time
+		}
+
+		if stat.r.NextByThread.Time.After(end) {
+			end = stat.r.NextByThread.Time
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%f\t%s\t%s\t%s\t%s\t%s\t\n", stat.r.Time.Format(utils.DateFormat), stat.tid, max.Seconds(), stat.r.NextByThread.Time.Format(utils.DateFormat), cmd, cmdTime, cmdCompleteTime, duration)
+
+		if setWindow {
+			window.Reset()
+			window.SetStart(start)
+			window.SetEnd(end)
+		}
 
 	}
+	fmt.Fprintln(w)
+	w.Flush()
 
 }
 

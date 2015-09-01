@@ -15,6 +15,8 @@ type Window struct {
 
 	Sooner time.Time
 	Later  time.Time
+
+	Current time.Time
 }
 
 func (w Window) Print() string {
@@ -30,6 +32,17 @@ var window Window
 func GetWindow() Window {
 	w := window
 	return w
+}
+
+func SetTime(t time.Time) error {
+
+	if t.After(window.Later) && t.Before(window.Sooner) {
+		return fmt.Errorf("Time out of max window range.")
+	}
+
+	window.Current = t
+
+	return nil
 }
 
 func Reset() {
@@ -56,6 +69,7 @@ func SetStart(t time.Time) error {
 
 	return nil
 }
+
 func SetEnd(t time.Time) error {
 	window.Lock()
 	defer window.Unlock()

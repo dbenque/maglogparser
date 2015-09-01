@@ -1,6 +1,7 @@
 package record
 
 import (
+	"fmt"
 	"log"
 	"maglogparser/utils"
 	"strings"
@@ -8,16 +9,17 @@ import (
 )
 
 type Record struct {
-	Time             time.Time
-	ThreadId         string
-	Node             string
-	Pid              string
-	Raw              string
-	Cmd              string
-	NextByThread     *Record
-	PreviousByThread *Record
-	CmdRecord        *Record
-	NextCmdRecord    *Record
+	Time                time.Time
+	ThreadId            string
+	Node                string
+	Pid                 string
+	Raw                 string
+	Cmd                 string
+	NextByThread        *Record
+	PreviousByThread    *Record
+	NextCmdRecord       *Record
+	CmdRecord           *Record
+	CmdCompletionRecord *Record
 }
 
 var RecordByThread map[string][]*Record
@@ -67,9 +69,18 @@ func ScanThreadID(c <-chan *Record) {
 }
 
 func (r *Record) updateTextCommand() {
+
+	if len(r.Cmd) > 0 {
+		return
+	}
+
 	r.Cmd = strings.Split(strings.Split(r.Raw, "> ")[1], " ")[2]
 	if strings.Contains(r.Cmd, "kSEIAdminCmdGeneric") {
 		gen := strings.Split(strings.Split(r.Raw, "[")[1], "]")[0]
+		tokens := strings.Split(gen, " ")
+		if len(tokens) >= 5 {
+			gen = tokens[3] + " " + tokens[4]
+		}
 		r.Cmd = r.Cmd + "[" + gen + "]"
 	}
 }
@@ -84,13 +95,17 @@ func (r *Record) IsEndCommand() bool {
 
 func (r *Record) GetCurrentCommand() *Record {
 
-	for !r.IsCommand() && r.PreviousByThread != nil {
-		r = r.PreviousByThread
+	wr := r
+
+	for !wr.IsCommand() && wr.PreviousByThread != nil {
+		wr = wr.PreviousByThread
 	}
 
-	if r.IsCommand() {
-		r.updateTextCommand()
-		return r
+	if wr.IsCommand() {
+		wr.updateTextCommand()
+		r.CmdRecord = wr
+		wr.CmdRecord = wr
+		return wr
 	}
 
 	return nil
@@ -106,17 +121,17 @@ func (r *Record) GetNextCommand() *Record {
 		return nil
 	}
 
-	rr := r
+	wr := r
 
-	for rr.NextByThread != nil && !rr.NextByThread.IsCommand() {
-		rr = rr.NextByThread
+	for wr.NextByThread != nil && !wr.NextByThread.IsCommand() {
+		wr = wr.NextByThread
 	}
 
-	if rr.NextByThread == nil {
+	if wr.NextByThread == nil {
 		return nil
 	}
 
-	r.NextCmdRecord = rr.NextByThread
+	r.NextCmdRecord = wr.NextByThread
 
 	r.NextCmdRecord.updateTextCommand()
 
@@ -125,13 +140,37 @@ func (r *Record) GetNextCommand() *Record {
 
 func (r *Record) GetCommandCompletion() *Record {
 
-	for !r.IsEndCommand() && r.NextByThread != nil {
-		r = r.NextByThread
+	if r.CmdCompletionRecord != nil {
+		return r.CmdCompletionRecord
 	}
 
-	if r.IsEndCommand() {
-		return r
+	wr := r
+
+	for !wr.IsEndCommand() && wr.NextByThread != nil {
+		wr = wr.NextByThread
+	}
+
+	if wr.NextByThread == nil {
+		return nil
+	}
+
+	if wr.IsEndCommand() {
+		r.CmdCompletionRecord = wr
+		return wr
 	}
 
 	return nil
+}
+
+func (r *Record) GetCmdDuration() (time.Duration, error) {
+
+	start := r.GetCurrentCommand()
+	end := r.GetCommandCompletion()
+
+	if start == nil || end == nil {
+		return time.Duration(0), fmt.Errorf("Missing End or Start")
+	}
+
+	return end.Time.Sub(start.Time), nil
+
 }

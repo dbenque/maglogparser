@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"maglogparser/locksearch/record"
 	"maglogparser/locksearch/window"
+	"os"
 	"sort"
 	"sync"
+	"text/tabwriter"
 )
 
 type countTID struct {
@@ -28,10 +30,17 @@ func statTID() {
 
 	result := statThreadIDCmd()
 
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
+
+	fmt.Fprintln(w, "TID\tCommand Count\t")
+
 	for _, stat := range result {
-		fmt.Printf("%s : %d\n", stat.tid, stat.count)
+		fmt.Fprintf(w, "%s\t%d\t\n", stat.tid, stat.count)
 	}
 
+	fmt.Fprintln(w)
+	w.Flush()
 }
 
 func statThreadIDCmd() []countTID {
@@ -67,32 +76,6 @@ func statThreadIDCmd() []countTID {
 			result.Lock()
 			result.stats = append(result.stats, myStat)
 			result.Unlock()
-
-			// max := time.Duration(0)
-			// var rmax *record.Record
-			// for _, r := range rs {
-			//
-			// 	if !window.InCurrentWindow(r.Time) {
-			// 		continue
-			// 	}
-			//
-			// 	if r.NextByThread != nil {
-			// 		d := r.NextByThread.Time.Sub(r.Time)
-			// 		if d > max {
-			// 			max = d
-			// 			rmax = r
-			// 		}
-			// 	}
-			// }
-			//
-			// if rmax != nil {
-			// 	rcmd := rmax.GetCurrentCommand()
-			//
-			// 	rcmdCompleted := rmax.GetCommandCompletion()
-			// 	result.Lock()
-			// 	result.m = append(result.m, statRecord{tid: tid, r: rmax, rcmd: rcmd, rcmdCompleted: rcmdCompleted})
-			// 	result.Unlock()
-			// }
 
 		}(id, sl)
 	}

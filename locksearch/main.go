@@ -59,20 +59,56 @@ func main() {
 
 	wg.Wait()
 
+	shell.Register("setTime", func(args ...string) (string, error) {
+		t, err := time.Parse(utils.DateFormat, strings.Join(args, " "))
+
+		if err != nil {
+			return "", err
+		}
+
+		if err := window.SetTime(t); err != nil {
+			return "", err
+		}
+
+		setTime(t)
+
+		return "", nil
+	})
+
 	shell.Register("TID", func(args ...string) (string, error) {
 		statTID()
 		return "", nil
 	})
 
+	shell.Register("cmd", func(args ...string) (string, error) {
+		statCmd()
+		return "", nil
+	})
+
 	shell.Register("lock", func(args ...string) (string, error) {
-		onlyCmd := len(args) > 0 && args[0] == "cmd"
-		statLock(onlyCmd)
+		onlyCmd := false
+		setWindow := false
+		for _, a := range args {
+			if a == "cmd" {
+				onlyCmd = true
+			}
+			if a == "setWindow" {
+				setWindow = true
+			}
+		}
+
+		statLock(onlyCmd, setWindow)
+
+		if setWindow {
+			updatePromt()
+		}
+
 		return "", nil
 	})
 
 	shell.Register("window", func(args ...string) (string, error) {
 
-		if args[0] == "reset" {
+		if len(args) > 0 && args[0] == "reset" {
 			window.Reset()
 			updatePromt()
 		}
