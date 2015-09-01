@@ -2,182 +2,128 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"maglogparser/locksearch/record"
+	"maglogparser/locksearch/window"
+	"maglogparser/utils"
+
+	"github.com/abiosoft/ishell"
 )
 
-const timeFormat = "2006/01/02 15:04:05.000000"
-
-type record struct {
-	time             time.Time
-	threadId         string
-	node             string
-	pid              string
-	raw              string
-	index            int
-	nextByThread     *record
-	previousByThread *record
-}
-
-func NewRecord(raw string) *record {
-	if t, err := time.Parse(timeFormat, raw[0:len(timeFormat)]); err == nil {
-		r := record{time: t, raw: raw}
-		tokens := strings.Split(r.raw, " ")
-		r.node = tokens[2]
-		r.pid = tokens[4]
-		tokens = strings.Split(strings.Split(r.raw, "<")[1], " ")
-		r.threadId = tokens[1][4 : len(tokens[1])-1]
-
-		if r.threadId[0] == 'f' {
-			log.Fatalln(r.raw)
-		}
-
-		return &r
-	}
-	return nil
-}
-
-var RecordByThread map[string][]*record
+var flagvar int
+var shell *ishell.Shell
 
 func init() {
-	RecordByThread = make(map[string][]*record)
+	flag.IntVar(&flagvar, "flagname", 1234, "help message for flagname")
+	shell = ishell.NewShell()
 }
 
 func main() {
 
 	args := os.Args[1:]
-	var records []*record
+	var records []*record.Record
 
-	index := 0
-
-	chanThreadID := make(chan *record)
+	chanThreadID := make(chan *record.Record)
+	chanTime := make(chan *record.Record)
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
+	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		scanThreadID(chanThreadID)
-		statThreadID()
+		record.ScanThreadID(chanThreadID)
+	}()
+	go func() {
+		defer wg.Done()
+		window.ScanTime(chanTime)
 	}()
 
 	for s := range readLine(args[0]) {
-		r := NewRecord(s)
+		r := record.NewRecord(s)
 		if r != nil {
-			r.index = index
 			records = append(records, r)
 			chanThreadID <- r
-			index++
+			chanTime <- r
 		}
 	}
 
 	close(chanThreadID)
+	close(chanTime)
 
 	wg.Wait()
 
-	fmt.Println("Done")
-}
+	shell.Register("TID", func(args ...string) (string, error) {
+		statTID()
+		return "", nil
+	})
 
-func scanThreadID(c <-chan *record) {
+	shell.Register("lock", func(args ...string) (string, error) {
+		onlyCmd := len(args) > 0 && args[0] == "cmd"
+		statLock(onlyCmd)
+		return "", nil
+	})
 
-	for r := range c {
-		m, ok := RecordByThread[r.threadId]
-		if !ok {
-			m = make([]*record, 0, 0)
+	shell.Register("window", func(args ...string) (string, error) {
+
+		if args[0] == "reset" {
+			window.Reset()
+			updatePromt()
 		}
 
-		if len(m) > 0 {
-			m[len(m)-1].nextByThread = r
-			r.previousByThread = m[len(m)-1]
+		return window.GetWindow().Print(), nil
+	})
+
+	shell.Register("start", func(args ...string) (string, error) {
+		if len(args) == 0 {
+			return "", fmt.Errorf("start take 1 argument that must be a timestamp")
 		}
 
-		m = append(m, r)
-		RecordByThread[r.threadId] = m
-	}
+		start, err := time.Parse(utils.DateFormat, strings.Join(args, " "))
+
+		if err != nil {
+			return "", err
+		}
+		if err = window.SetStart(start); err != nil {
+			return "", err
+		}
+		updatePromt()
+
+		return "", nil
+	})
+
+	shell.Register("end", func(args ...string) (string, error) {
+		if len(args) == 0 {
+			return "", fmt.Errorf("start take 1 argument that must be a timestamp")
+		}
+
+		start, err := time.Parse(utils.DateFormat, strings.Join(args, " "))
+
+		if err != nil {
+			return "", err
+		}
+		if err = window.SetEnd(start); err != nil {
+			return "", err
+		}
+		updatePromt()
+
+		return "", nil
+	})
+
+	updatePromt()
+
+	shell.Start()
+
 }
 
-func statThreadID() {
-	var wg sync.WaitGroup
-	for id, sl := range RecordByThread {
-		wg.Add(1)
-		go func(tid string, rs []*record) {
-			defer wg.Done()
-			max := time.Duration(0)
-			var rmax *record
-			for _, r := range rs {
-
-				if r.nextByThread != nil {
-					d := r.nextByThread.time.Sub(r.time)
-					if d > max {
-						max = d
-						rmax = r
-					}
-				}
-			}
-
-			if rmax != nil {
-				rcmd := getCurrentCommand(rmax)
-				cmd := "nil"
-				cmdTime := "nil"
-
-				if rcmd != nil {
-					cmd = strings.Split(strings.Split(rcmd.raw, "> ")[1], " ")[2]
-
-					if strings.Contains(cmd, "kSEIAdminCmdGeneric") {
-						gen := strings.Split(strings.Split(rcmd.raw, "[")[1], "]")[0]
-						cmd = cmd + "[" + gen + "]"
-					}
-
-					cmdTime = rcmd.time.Format(timeFormat)
-				}
-
-				rcmdComplete := getCommandCompletion(rmax)
-				cmdCompleteTime := "nil"
-				if rcmdComplete != nil {
-					cmdCompleteTime = rcmdComplete.time.Format(timeFormat)
-				}
-
-				duration := ""
-				if rcmdComplete != nil && rcmd != nil {
-					duration = fmt.Sprintf("%f", rcmdComplete.time.Sub(rcmd.time).Seconds())
-				}
-
-				fmt.Printf("%s --> TID%s : wait %f till %s for %s since %s to finish at %s duration %s\n", rmax.time.Format(timeFormat), tid, max.Seconds(), rmax.nextByThread.time.Format(timeFormat), cmd, cmdTime, cmdCompleteTime, duration)
-			}
-
-		}(id, sl)
-	}
-	wg.Wait()
-}
-
-func getCurrentCommand(r *record) *record {
-
-	for !strings.Contains(r.raw, "> Processing Command#") && r.previousByThread != nil {
-		r = r.previousByThread
-	}
-
-	if strings.Contains(r.raw, "> Processing Command#") {
-		return r
-	}
-
-	return nil
-}
-
-func getCommandCompletion(r *record) *record {
-
-	for !strings.Contains(r.raw, "> End of processing for Command#") && r.nextByThread != nil {
-		r = r.nextByThread
-	}
-
-	if strings.Contains(r.raw, "> End of processing for Command#") {
-		return r
-	}
-
-	return nil
+func updatePromt() {
+	shell.SetPrompt("\n" + window.GetWindow().PrintCurrent() + " >> ")
 }
 
 func readLine(path string) <-chan string {
