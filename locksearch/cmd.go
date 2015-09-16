@@ -69,14 +69,14 @@ func statCmd() {
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
 
-	fmt.Fprintln(w, "Command\tcount\tmiss\tmin\tmax\tavg\t")
+	fmt.Fprintln(w, "Command\tcount\tmiss\tmin (ms)\tmax (ms)\tavg (ms)\t")
 	for _, s := range stats {
 		ss, _ := s.(*cmdStat)
 		c := int64(len(ss.records) - ss.incomplete)
 		if c == 0 {
 			c = 1
 		}
-		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t\n", ss.cmd, len(ss.records), ss.incomplete, ss.min.Nanoseconds()/1000, ss.max.Nanoseconds()/1000, ss.sum.Nanoseconds()/1000/c)
+		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%d\t%d\t\n", ss.cmd, len(ss.records), ss.incomplete, ss.min.Nanoseconds()/1000000, ss.max.Nanoseconds()/1000000, ss.sum.Nanoseconds()/1000000/c)
 
 	}
 
