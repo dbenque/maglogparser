@@ -1,16 +1,14 @@
-package main
+package time
 
 import (
 	"fmt"
 	"maglogparser/locksearch/record"
 	"maglogparser/utils"
 	"os"
-	"text/tabwriter"
-	"time"
-)
-import (
 	"sort"
 	"sync"
+	"text/tabwriter"
+	"time"
 )
 
 type result struct {
@@ -21,14 +19,14 @@ type result struct {
 
 type results struct {
 	sync.Mutex
-	res []HasRecord
+	res []record.HasRecord
 }
 
 func (r *result) GetRecord() *record.Record {
 	return r.r
 }
 
-func setTime(tInput time.Time) error {
+func SetTime(tInput time.Time) error {
 
 	var myresults results
 
@@ -67,7 +65,7 @@ func setTime(tInput time.Time) error {
 	wg.Wait()
 
 	// output the last log of each TID for that time
-	sort.Sort(ByRecordTime(myresults.res))
+	sort.Sort(record.ByRecordTime(myresults.res))
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 1, 0, 2, ' ', 0)
@@ -102,7 +100,7 @@ func setTime(tInput time.Time) error {
 	wg.Wait()
 
 	// output the last Command of each TID for that time
-	sort.Sort(ByRecordTime(inGoingCommandResult.res))
+	sort.Sort(record.ByRecordTime(inGoingCommandResult.res))
 
 	wcmd := new(tabwriter.Writer)
 	wcmd.Init(os.Stdout, 1, 0, 2, ' ', 0)

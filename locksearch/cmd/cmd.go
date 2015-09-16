@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -29,11 +29,11 @@ func (c *cmdStat) GetCmdName() string {
 	return c.cmd
 }
 
-func statCmd() {
+func StatCmd() {
 
 	result := statCmdPerThread()
 
-	var stats []HasCmdName
+	var stats []record.HasCmdName
 
 	var wg sync.WaitGroup
 	for cmd, records := range result.m {
@@ -64,7 +64,7 @@ func statCmd() {
 
 	wg.Wait()
 
-	sort.Sort(ByCmdName(stats))
+	sort.Sort(record.ByCmdName(stats))
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)

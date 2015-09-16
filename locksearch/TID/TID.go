@@ -1,4 +1,4 @@
-package main
+package TID
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func (a byCount) Len() int           { return len(a) }
 func (a byCount) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byCount) Less(i, j int) bool { return a[i].count < a[j].count }
 
-func statTID() {
+func StatTID() {
 
 	result := statThreadIDCmd()
 
@@ -48,6 +48,7 @@ func statThreadIDCmd() []countTID {
 	var result statTIDResults
 
 	var wg sync.WaitGroup
+	fmt.Printf("Length:%d\n", len(record.RecordByThread))
 	for id, sl := range record.RecordByThread {
 		wg.Add(1)
 		go func(tid string, rs []*record.Record) {

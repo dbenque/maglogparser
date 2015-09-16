@@ -11,8 +11,14 @@ import (
 	"time"
 
 	"maglogparser/locksearch/record"
+	rt "maglogparser/locksearch/time"
 	"maglogparser/locksearch/window"
 	"maglogparser/utils"
+
+	"maglogparser/locksearch/TID"
+	"maglogparser/locksearch/cmd"
+	"maglogparser/locksearch/lock"
+	"maglogparser/locksearch/queue"
 
 	"github.com/abiosoft/ishell"
 )
@@ -28,7 +34,6 @@ func init() {
 func main() {
 
 	args := os.Args[1:]
-	var records []*record.Record
 
 	chanThreadID := make(chan *record.Record)
 	chanTime := make(chan *record.Record)
@@ -48,7 +53,6 @@ func main() {
 	for s := range readLine(args[0]) {
 		r := record.NewRecord(s)
 		if r != nil {
-			records = append(records, r)
 			chanThreadID <- r
 			chanTime <- r
 		}
@@ -60,8 +64,13 @@ func main() {
 	wg.Wait()
 
 	shell.Register("setTime", func(args ...string) (string, error) {
-		t, err := time.Parse(utils.DateFormat, strings.Join(args, " "))
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("set the time around which the log exploration should be done.\nTo retrieve logs and on going commands.\nSyntax: setTime " + utils.DateFormat)
+			return "", nil
+		}
 
+		t, err := time.Parse(utils.DateFormat, line)
 		if err != nil {
 			return "", err
 		}
@@ -70,22 +79,51 @@ func main() {
 			return "", err
 		}
 
-		setTime(t)
+		rt.SetTime(t)
 
 		return "", nil
 	})
 
 	shell.Register("TID", func(args ...string) (string, error) {
-		statTID()
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Show the number of command executed by each thread.\nSyntax: TID")
+			return "", nil
+		}
+
+		TID.StatTID()
+		return "", nil
+	})
+
+	shell.Register("queue", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Build statistic for queues.\nSyntax: queue")
+			return "", nil
+		}
+
+		queue.StatQueue()
 		return "", nil
 	})
 
 	shell.Register("cmd", func(args ...string) (string, error) {
-		statCmd()
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Show the commands statistics.\nSyntax: cmd")
+			return "", nil
+		}
+
+		cmd.StatCmd()
 		return "", nil
 	})
 
 	shell.Register("lock", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Search for each thread the max hang time.\nSyntax: lock [cmd] [setWindow]\n\tcmd: Only display the theard that execute commands\n\tsetWindow: set the time window to the range of time returned by this lock exploration.")
+			return "", nil
+		}
+
 		onlyCmd := false
 		setWindow := false
 		for _, a := range args {
@@ -97,7 +135,7 @@ func main() {
 			}
 		}
 
-		statLock(onlyCmd, setWindow)
+		lock.StatLock(onlyCmd, setWindow)
 
 		if setWindow {
 			updatePromt()
@@ -107,6 +145,11 @@ func main() {
 	})
 
 	shell.Register("window", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Display the time window of all the logs and the enclosed one used for the statistics.\nSyntax: window [reset]\n\treset: set the active window to the maximum (all logs)")
+			return "", nil
+		}
 
 		if len(args) > 0 && args[0] == "reset" {
 			window.Reset()
@@ -117,6 +160,12 @@ func main() {
 	})
 
 	shell.Register("start", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Set the lower bound of the active time window.\nSyntax: start " + utils.DateFormat)
+			return "", nil
+		}
+
 		if len(args) == 0 {
 			return "", fmt.Errorf("start take 1 argument that must be a timestamp")
 		}
@@ -135,6 +184,12 @@ func main() {
 	})
 
 	shell.Register("end", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Set the upper bound of the active time window.\nSyntax: end " + utils.DateFormat)
+			return "", nil
+		}
+
 		if len(args) == 0 {
 			return "", fmt.Errorf("start take 1 argument that must be a timestamp")
 		}

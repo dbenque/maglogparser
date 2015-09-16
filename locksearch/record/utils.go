@@ -1,9 +1,7 @@
-package main
-
-import "maglogparser/locksearch/record"
+package record
 
 type HasRecord interface {
-	GetRecord() *record.Record
+	GetRecord() *Record
 }
 
 type ByRecordTime []HasRecord

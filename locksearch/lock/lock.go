@@ -1,4 +1,4 @@
-package main
+package lock
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ type ResultMap struct {
 	m []statRecord
 }
 
-func statLock(onlyCmd bool, setWindow bool) {
+func StatLock(onlyCmd bool, setWindow bool) {
 
 	result := statThreadID()
 
