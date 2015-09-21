@@ -102,7 +102,14 @@ func main() {
 			return "", nil
 		}
 
-		queue.StatQueue()
+		peak := false
+		for _, a := range args {
+			if a == "peak" {
+				peak = true
+			}
+		}
+
+		queue.StatQueue(peak)
 		return "", nil
 	})
 
