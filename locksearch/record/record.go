@@ -95,6 +95,10 @@ func (r *Record) IsEndCommand() bool {
 
 func (r *Record) GetCurrentCommand() *Record {
 
+	if r.CmdRecord != nil {
+		return r.CmdRecord
+	}
+
 	wr := r
 
 	for !wr.IsCommand() && wr.PreviousByThread != nil {

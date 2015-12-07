@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"maglogparser/locksearch/TID"
 	"maglogparser/locksearch/cmd"
 	"maglogparser/locksearch/lock"
+	logging "maglogparser/locksearch/log"
 	"maglogparser/locksearch/queue"
 
 	"github.com/abiosoft/ishell"
@@ -95,6 +97,30 @@ func main() {
 		return "", nil
 	})
 
+	shell.Register("log", func(args ...string) (string, error) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, "--help") {
+			fmt.Println("Display the log around the time that was set (setTime).\nSyntax: log TID [nbLine=5]")
+			return "", nil
+		}
+
+		if len(args) < 1 {
+			fmt.Println("Syntax error, missing arguments")
+			fmt.Println("Display the log around the time that was set (setTime).\nSyntax: log TID [nbLine=5]")
+			return "", nil
+		}
+
+		count := 0
+		if len(args) == 2 {
+			if c, err := strconv.Atoi(args[1]); err == nil {
+				count = c
+			}
+		}
+
+		logging.GetLog(args[0], count)
+		return "", nil
+	})
+
 	shell.Register("queue", func(args ...string) (string, error) {
 		line := strings.Join(args, " ")
 		if strings.Contains(line, "--help") {
@@ -102,14 +128,7 @@ func main() {
 			return "", nil
 		}
 
-		peak := false
-		for _, a := range args {
-			if a == "peak" {
-				peak = true
-			}
-		}
-
-		queue.StatQueue(peak)
+		queue.StatQueue()
 		return "", nil
 	})
 
@@ -117,7 +136,15 @@ func main() {
 		line := strings.Join(args, " ")
 		if strings.Contains(line, "--help") {
 			fmt.Println("Show the commands statistics.\nSyntax: cmd")
+			fmt.Println("Show the commands for a given thread in the time window.\nSyntax: cmd TID")
 			return "", nil
+		}
+
+		if len(args) == 1 {
+			if _, err := strconv.Atoi(args[0]); err == nil {
+				cmd.StatCmdTID(args[0])
+				return "", nil
+			}
 		}
 
 		cmd.StatCmd()

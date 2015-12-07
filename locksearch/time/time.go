@@ -105,10 +105,18 @@ func SetTime(tInput time.Time) error {
 	wcmd := new(tabwriter.Writer)
 	wcmd.Init(os.Stdout, 1, 0, 2, ' ', 0)
 	fmt.Fprintln(wcmd, "OnGoing commands at that time:")
-	fmt.Fprintln(wcmd, "TID\tCmd\tStart\tRunning for\t")
+	fmt.Fprintln(wcmd, "TID\tCmd\tStart\tRunning for\tRemaining")
 	for _, r := range inGoingCommandResult.res {
 		res, _ := r.(*result)
-		fmt.Fprintf(wcmd, "%s\t%s\t%s\t%f\t\n", res.tid, res.r.Cmd, res.r.Time.Format(utils.DateFormat), tInput.Sub(res.r.Time).Seconds())
+		completionRec := res.r.GetCommandCompletion()
+		if completionRec == nil {
+			fmt.Fprintf(wcmd, "%s\t%s\t%s\t%f\t--\t\n", res.tid, res.r.Cmd, res.r.Time.Format(utils.DateFormat), tInput.Sub(res.r.Time).Seconds())
+			continue
+		}
+		if completionRec.Time.Before(tInput) {
+			continue
+		}
+		fmt.Fprintf(wcmd, "%s\t%s\t%s\t%f\t%f\t\n", res.tid, res.r.Cmd, res.r.Time.Format(utils.DateFormat), tInput.Sub(res.r.Time).Seconds(), completionRec.Time.Sub(tInput).Seconds())
 
 	}
 	fmt.Fprintln(wcmd)

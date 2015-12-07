@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maglogparser/locksearch/record"
 	"maglogparser/locksearch/window"
+	"maglogparser/utils"
 	"os"
 	"sort"
 	"sync"
@@ -27,6 +28,60 @@ type cmdStat struct {
 
 func (c *cmdStat) GetCmdName() string {
 	return c.cmd
+}
+
+func (c *cmdStat) GetDuration() (time.Duration, error) {
+	return c.GetDuration()
+}
+
+func StatCmdTID(aTID string) {
+	rs, ok := record.RecordByThread[aTID]
+	if !ok {
+		fmt.Println("Unknown TID")
+		return
+	}
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
+	//fmt.Fprintln(w, "Time\tCommand\tEnd\tDuration\t")
+	fmt.Fprintln(w, "Time\tCommand\tDuration(s)\tNext Cmd After(s)\t")
+
+	currentCmd := rs[0] // TODO Optim to start at the border of the window
+
+	if currentCmd.PreviousByThread != nil {
+		currentCmd = currentCmd.PreviousByThread
+	}
+
+	for {
+		nextCmd := currentCmd.GetNextCommand()
+		if nextCmd == nil {
+			break
+		}
+
+		if window.InCurrentWindow(nextCmd.Time) {
+			nextCmd.GetCommandCompletion()
+		}
+
+		currentCmd = nextCmd
+
+		if window.InCurrentWindow(currentCmd.Time) {
+			duration := -1.0
+			next := -1.0
+			if currentCmd.CmdCompletionRecord != nil {
+				duration = currentCmd.CmdCompletionRecord.Time.Sub(currentCmd.Time).Seconds()
+				nc := currentCmd.GetNextCommand()
+				if nc != nil {
+					next = nc.Time.Sub(currentCmd.CmdCompletionRecord.Time).Seconds()
+				}
+			}
+
+			fmt.Fprintf(w, "%s\t%s\t%f\t%f\t\n", currentCmd.Time.Format(utils.DateFormat), currentCmd.Cmd, duration, next)
+		}
+	}
+
+	fmt.Fprintln(w)
+	w.Flush()
+
 }
 
 func StatCmd() {
@@ -58,6 +113,8 @@ func StatCmd() {
 				}
 				s.sum += d
 			}
+
+			//sort.Sort(record.ByDuration(stats))
 
 		}(&aStat)
 	}
@@ -91,6 +148,7 @@ func statCmdPerThread() CmdMap {
 
 	var wg sync.WaitGroup
 	for id, sl := range record.RecordByThread {
+
 		wg.Add(1)
 		go func(tid string, rs []*record.Record) {
 			defer wg.Done()

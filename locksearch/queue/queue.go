@@ -46,6 +46,10 @@ func StatQueue() error {
 				}
 
 				tokens := strings.Split(txt[1], " ") // 60:130 to limit the scope of search, with reasonable margins
+				if len(tokens) < 3 {
+					continue
+				}
+
 				if ((tokens[1] == "Queue") && (tokens[2] == "command")) ||
 					((tokens[1] == "Dequeue") && (tokens[2] == "and") && (tokens[3] == "execute")) {
 					//2015/08/04 15:19:59.904847 magap302 masterag-11298 MDW INFO <SEI_MAAdminSequence.cpp#223 TID#13> Queue command 0x2aacbf979400 [Command#14015: kSEIBELibLoaded : BE->MAG:Notify the Master Agent that a lib has been loaded (version 1)^@] (from BENT0UCL4VXODY to masterag); Command sequence queue size: 0
