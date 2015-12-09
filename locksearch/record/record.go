@@ -101,7 +101,7 @@ func (r *Record) GetCurrentCommand() *Record {
 
 	wr := r
 
-	for !wr.IsCommand() && wr.PreviousByThread != nil {
+	for !(wr.IsCommand() || wr.IsEndCommand()) && wr.PreviousByThread != nil {
 		wr = wr.PreviousByThread
 	}
 

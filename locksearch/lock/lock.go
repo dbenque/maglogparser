@@ -117,8 +117,10 @@ func statThreadID() []statRecord {
 
 			if rmax != nil {
 				rcmd := rmax.GetCurrentCommand()
-
-				rcmdCompleted := rmax.GetCommandCompletion()
+				rcmdCompleted := rcmd
+				if rcmd != nil {
+					rcmdCompleted = rmax.GetCommandCompletion()
+				}
 				result.Lock()
 				result.m = append(result.m, statRecord{tid: tid, r: rmax, rcmd: rcmd, rcmdCompleted: rcmdCompleted})
 				result.Unlock()

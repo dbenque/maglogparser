@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -39,6 +40,20 @@ func ParseDate3(date []byte) (time.Time, error) {
 
 // ParseDate4 parse date optimized
 func ParseDate4(date string) (time.Time, error) {
+	year := ((((int(date[0])-'0')*100 + (int(date[1])-'0')*10) + (int(date[2]) - '0')) * 10) + (int(date[3]) - '0')
+	month := time.Month(((int(date[5]) - '0') * 10) + (int(date[6]) - '0'))
+	day := ((int(date[8]) - '0') * 10) + (int(date[9]) - '0')
+	hour := ((int(date[11]) - '0') * 10) + (int(date[12]) - '0')
+	minute := ((int(date[14]) - '0') * 10) + (int(date[15]) - '0')
+	second := ((int(date[17]) - '0') * 10) + (int(date[18]) - '0')
+	us := (int(date[20])-'0')*100000 + (int(date[21])-'0')*10000 + (int(date[22])-'0')*1000 + (int(date[23])-'0')*100 + (int(date[24])-'0')*10 + (int(date[25]) - '0')
+	return time.Date(year, month, day, hour, minute, second, us*1000, time.UTC), nil
+}
+
+func ParseDate5(date string) (time.Time, error) {
+	if date[4] != '/' || date[4] != date[7] || date[13] != ':' || date[13] != date[16] {
+		return time.Unix(0, 0), fmt.Errorf("Bad date format")
+	}
 	year := ((((int(date[0])-'0')*100 + (int(date[1])-'0')*10) + (int(date[2]) - '0')) * 10) + (int(date[3]) - '0')
 	month := time.Month(((int(date[5]) - '0') * 10) + (int(date[6]) - '0'))
 	day := ((int(date[8]) - '0') * 10) + (int(date[9]) - '0')

@@ -19,7 +19,7 @@ type result struct {
 
 type results struct {
 	sync.Mutex
-	res []record.HasRecord
+	record.HasRecords
 }
 
 func (r *result) GetRecord() *record.Record {
@@ -59,7 +59,7 @@ func StatQueue() error {
 					if txt1 == "queue size:" {
 						if s, err := strconv.Atoi(backToken[last]); err == nil {
 							myresults.Lock()
-							myresults.res = append(myresults.res, &result{qSize: s, tid: tid, r: r})
+							myresults.HasRecords = append(myresults.HasRecords, &result{qSize: s, tid: tid, r: r})
 							myresults.Unlock()
 						}
 					}
@@ -69,7 +69,7 @@ func StatQueue() error {
 	}
 
 	wg.Wait()
-	sort.Sort(record.ByRecordTime(myresults.res))
+	sort.Sort(record.ByHasRecordTime{myresults.HasRecords})
 
 	// Build chart
 	chart := tm.NewLineChart(tm.Width()-10, tm.Height()-10)
@@ -84,12 +84,12 @@ func StatQueue() error {
 		min int
 	}
 
-	t0 := myresults.res[0].(*result).r.Time
-	tmax := myresults.res[len(myresults.res)-1].(*result).r.Time
+	t0 := myresults.HasRecords[0].(*result).r.Time
+	tmax := myresults.HasRecords[len(myresults.HasRecords)-1].(*result).r.Time
 	indexMax := int(tmax.Sub(t0).Seconds())
 
 	m := make(map[int]prec)
-	for _, v := range myresults.res {
+	for _, v := range myresults.HasRecords {
 		r := v.(*result)
 		d := int(r.r.Time.Sub(t0).Seconds())
 		p, ok := m[d]

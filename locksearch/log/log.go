@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maglogparser/locksearch/record"
 	"maglogparser/locksearch/window"
+	"maglogparser/utils"
 )
 
 func GetLog(tid string, count int) {
@@ -40,22 +41,40 @@ func GetLog(tid string, count int) {
 		count = 5
 	}
 
-	start := index - count
-	end := index + count + 1
-	if start < 0 {
-		start = 0
-	}
-	if end > len(records) {
-		end = len(records)
-	}
-
-	for i := start; i < end; i++ {
-		prefix := "   "
-		if t.Equal(records[i].Time) {
-			prefix = " * "
+	if count > 0 {
+		start := index - count
+		end := index + count + 1
+		if start < 0 {
+			start = 0
 		}
-		fmt.Println(prefix + records[i].Raw)
-	}
+		if end > len(records) {
+			end = len(records)
+		}
 
+		for i := start; i < end; i++ {
+			prefix := "   "
+			if t.Equal(records[i].Time) {
+				prefix = " * "
+			}
+			fmt.Println(prefix + records[i].Raw)
+		}
+	} else {
+
+		nCmd := records[index].GetCurrentCommand()
+
+		if nCmd == nil {
+			fmt.Printf("No command found for the given thread %s, at timestamp %s", tid, records[index].Time.Format(utils.DateFormat))
+			return
+		}
+
+		for nCmd.NextByThread != nil && !nCmd.IsEndCommand() {
+			fmt.Println(nCmd.Raw)
+			nCmd = nCmd.NextByThread
+		}
+
+		if nCmd.IsEndCommand() {
+			fmt.Println(nCmd.Raw)
+		}
+	}
 	return
 }

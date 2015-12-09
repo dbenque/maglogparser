@@ -100,7 +100,8 @@ func main() {
 	shell.Register("log", func(args ...string) (string, error) {
 		line := strings.Join(args, " ")
 		if strings.Contains(line, "--help") {
-			fmt.Println("Display the log around the time that was set (setTime).\nSyntax: log TID [nbLine=5]")
+			fmt.Println("Display nbLine log lines around the time that was set (setTime) for a given TID.\nSyntax: log TID [nbLine=5]")
+			fmt.Println("Display the log of the command for the time that was set (setTime) for a given TID.\nSyntax: log TID cmd")
 			return "", nil
 		}
 
@@ -114,6 +115,8 @@ func main() {
 		if len(args) == 2 {
 			if c, err := strconv.Atoi(args[1]); err == nil {
 				count = c
+			} else if args[1] == "cmd" {
+				count = -1
 			}
 		}
 
@@ -136,7 +139,8 @@ func main() {
 		line := strings.Join(args, " ")
 		if strings.Contains(line, "--help") {
 			fmt.Println("Show the commands statistics.\nSyntax: cmd")
-			fmt.Println("Show the commands for a given thread in the time window.\nSyntax: cmd TID")
+			fmt.Println("Show the commands for a given thread in the time window.\nSyntax: cmd 'TID'")
+			fmt.Println("Show the response time distribution in the time window.\nSyntax: cmd d 'CmdName'")
 			return "", nil
 		}
 
@@ -147,7 +151,15 @@ func main() {
 			}
 		}
 
-		cmd.StatCmd()
+		if len(args) == 2 {
+			if args[0] == "d" {
+				cmd.StatCmdDistribution(args[1])
+				return "", nil
+			}
+		}
+
+		cmd.StatCmdAll()
+
 		return "", nil
 	})
 
