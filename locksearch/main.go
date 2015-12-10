@@ -127,11 +127,11 @@ func main() {
 	shell.Register("queue", func(args ...string) (string, error) {
 		line := strings.Join(args, " ")
 		if strings.Contains(line, "--help") {
-			fmt.Println("Build statistic for queues.\nSyntax: queue")
+			fmt.Println("Build statistic for queues (readonly pool or write).\nSyntax: queue [r|w]")
 			return "", nil
 		}
 
-		queue.StatQueue()
+		queue.StatQueue(len(args) > 0 && args[0] == "w")
 		return "", nil
 	})
 
