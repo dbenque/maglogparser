@@ -2,9 +2,12 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -52,11 +55,13 @@ func main() {
 		window.ScanTime(chanTime)
 	}()
 
-	for s := range readLine(args[0]) {
-		r := record.NewRecord(s)
-		if r != nil {
-			chanThreadID <- r
-			chanTime <- r
+	for _, files := range args {
+		for s := range readLine(files) {
+			r := record.NewRecord(s)
+			if r != nil {
+				chanThreadID <- r
+				chanTime <- r
+			}
 		}
 	}
 
@@ -271,7 +276,12 @@ func readLine(path string) <-chan string {
 		return nil
 	}
 
-	scanner := bufio.NewScanner(inFile)
+	scanner, err := scannerFromFile(inFile)
+	if err != nil {
+		log.Fatalf("Scanner type error : %v", err)
+		return nil
+	}
+
 	scanner.Split(bufio.ScanLines)
 
 	c := make(chan string)
@@ -286,4 +296,36 @@ func readLine(path string) <-chan string {
 	}()
 
 	return c
+}
+
+func scannerFromFile(reader io.Reader) (*bufio.Scanner, error) {
+
+	var scanner *bufio.Scanner
+	//create a bufio.Reader so we can 'peek' at the first few bytes
+	bReader := bufio.NewReader(reader)
+
+	testBytes, err := bReader.Peek(64) //read a few bytes without consuming
+	if err != nil {
+		return nil, err
+	}
+	//Detect if the content is gzipped
+	contentType := http.DetectContentType(testBytes)
+
+	fmt.Printf("Content Type:%s\n", contentType)
+
+	//If we detect gzip, then make a gzip reader, then wrap it in a scanner
+	if strings.Contains(contentType, "x-gzip") {
+		gzipReader, err := gzip.NewReader(bReader)
+		if err != nil {
+			return nil, err
+		}
+
+		scanner = bufio.NewScanner(gzipReader)
+
+	} else {
+		//Not gzipped, just make a scanner based on the reader
+		scanner = bufio.NewScanner(bReader)
+	}
+
+	return scanner, nil
 }
