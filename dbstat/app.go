@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"regexp"
 	"text/tabwriter"
 )
@@ -114,13 +114,13 @@ func printStatOnValuesForLevel(varname string, varsdata vars, level int, levelSt
 	return savedCount, savedByte
 }
 
-func printStatOnValues(data map[string]vars) (int, int, int) {
+func printStatOnValues(data map[string]vars) (int, int, int, *bytes.Buffer) {
 
 	savedCount := 0
 	savedByte := 0
-
+	var b bytes.Buffer
 	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
+	w.Init(&b, 20, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintf(w, "Variable Name\tLevel\tRepetitions\tValue size\t\n")
 
 	ptrPatternMatch := []string{}
@@ -146,13 +146,12 @@ func printStatOnValues(data map[string]vars) (int, int, int) {
 
 	fmt.Fprintln(w)
 	w.Flush()
-	fmt.Printf("\nSaving %d definitions and %d bytes.\n", savedCount, savedByte)
+	fmt.Fprintf(&b, "\nSaving %d definitions and %d bytes.\n", savedCount, savedByte)
+	wexp := new(tabwriter.Writer)
 
 	if len(ptrPatternMatch) > 0 {
-
-		fmt.Printf("\nVariable to be checked (feature activation):\n")
-		wexp := new(tabwriter.Writer)
-		wexp.Init(os.Stdout, 20, 0, 2, ' ', tabwriter.AlignRight)
+		fmt.Fprintf(&b, "\nVariable to be checked (feature activation):\n")
+		wexp.Init(&b, 20, 0, 2, ' ', tabwriter.AlignRight)
 		fmt.Fprintf(wexp, "Variable Name\tRepetitions\t\n")
 		for _, s := range ptrPatternMatch {
 			v, _ := data[s]
@@ -162,5 +161,5 @@ func printStatOnValues(data map[string]vars) (int, int, int) {
 		wexp.Flush()
 	}
 
-	return savedCount, savedByte, len(ptrPatternMatch)
+	return savedCount, savedByte, len(ptrPatternMatch), &b
 }

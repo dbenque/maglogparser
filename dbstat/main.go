@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"sort"
+	"sync"
 	"text/tabwriter"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -52,20 +54,54 @@ func main() {
 			log.Fatal(err)
 		}
 		defer rows.Close()
+
+		type resultPerApp struct {
+			appName     string
+			duplicate   int
+			bytes       int
+			activateVar int
+			buffer      *bytes.Buffer
+		}
+
+		chanResult := make(chan resultPerApp)
+		done := make(chan bool)
+		wg := sync.WaitGroup{}
 		for rows.Next() {
 			var appName string
 
 			rows.Scan(&appName)
-			fmt.Printf("\n\n##################################### %s\n\n", appName)
-			c, b, a := printStatOnValues(collectAppVar(db, appName))
-			sliceAppStat = append(sliceAppStat, appStat{appName, c, b, a})
+			wg.Add(1)
+			go func(appN string) {
+				c, b, a, buf := printStatOnValues(collectAppVar(db, appN))
+				chanResult <- resultPerApp{appN, c, b, a, buf}
+				wg.Done()
+			}(appName)
+
 		}
+
+		go func() {
+			for {
+				select {
+				case r := <-chanResult:
+					fmt.Printf("\n\n##################################### %s\n\n", r.appName)
+
+					fmt.Printf("%s", r.buffer.String())
+					sliceAppStat = append(sliceAppStat, appStat{r.appName, r.duplicate, r.bytes, r.activateVar})
+
+				case <-done:
+					return
+				}
+			}
+		}()
+
+		wg.Wait()
+		done <- true
 	}
 	// appName := "ETK"
 	// c, b := printStatOnValues(collectAppVar(db, appName))
 	// sliceAppStat = append(sliceAppStat, appStat{appName, c, b})
 
-	fmt.Println("\n")
+	fmt.Printf("\n\n")
 	fmt.Println("##############################################")
 	fmt.Println("############# Statistics############## #######")
 	fmt.Println("##############################################")
