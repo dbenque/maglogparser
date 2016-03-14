@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,14 +51,23 @@ func GetGoqueryDocumentFromFile(filePath string) (*goquery.Document, error) {
 	return doc, err
 }
 
-func ExtractData(doc *goquery.Document) api.Appdolines {
+func extractData(doc *goquery.Document) api.Appdolines {
 	apps := api.NewApps()
-	records := []api.Appdoline{}
+	records := []*api.Appdoline{}
 	// main array to be browsed
 	doc.Find("table").Last().Find("tr").Each(func(i int, s *goquery.Selection) { //row
 		vals := []string{}
+		linkid := ""
 		s.Find("td").Each(func(j int, sl *goquery.Selection) { // col
 			vals = append(vals, sl.Text())
+			if j == 0 {
+				sl.Find("input").Each(func(k int, si *goquery.Selection) {
+					link, _ := si.Attr("value")
+					if len(link) > 0 {
+						linkid = strings.Split(link, " ")[0]
+					}
+				})
+			}
 		})
 
 		if len(vals) == 9 {
@@ -71,7 +82,8 @@ func ExtractData(doc *goquery.Document) api.Appdolines {
 				line.Task = vals[6]
 				line.Cmd = vals[8]
 				line.Dupe = false
-				records = append(records, line)
+				line.Link = linkid
+				records = append(records, &line)
 				apps.Add(line.App)
 			}
 		}
@@ -81,43 +93,12 @@ func ExtractData(doc *goquery.Document) api.Appdolines {
 }
 
 func CheckDupe(records api.Appdolines) {
-
-	countGoRoutines := 50
-	blockOverlap := 200
-	blockSize := len(records) / countGoRoutines
-
-	if blockSize < blockOverlap {
-		blockSize = 3 * blockOverlap
+	for _, r := range records {
+		if r.NextForNode != nil && r.Link == r.NextForNode.Link {
+			r.NextForNode.Dupe = true
+			r.NextForNode = r.NextForNode.NextForNode
+		}
 	}
-
-	start := 0
-	fmt.Printf("CheckDupe Analysis (blocksize=%d ; blockOverlap=%d; sliceSize=%d)\n", blockSize, blockOverlap, len(records))
-	var wg sync.WaitGroup
-	for start < len(records) {
-		wg.Add(1)
-		go func(startIndex int) {
-			fmt.Printf("Dupe Analysis started at index %d\n", startIndex)
-			defer wg.Done()
-			end := startIndex + blockSize
-			if end >= len(records) {
-				end = len(records) - 1
-			}
-			for i, v := range records[startIndex:end] {
-				f := i + blockOverlap
-				if f > end {
-					f = end
-				}
-				for j := i + 1; j < blockSize; j++ {
-					if v.Same(&records[j]) {
-						records[j].Dupe = true
-						//fmt.Printf("Dupe: \n%v\n%v\n", v, records[j])
-					}
-				}
-			}
-		}(start)
-		start = start + blockSize - blockOverlap
-	}
-	wg.Wait()
 }
 
 func FilterDupe(records api.Appdolines) api.Appdolines {
@@ -128,4 +109,47 @@ func FilterDupe(records api.Appdolines) api.Appdolines {
 		}
 	}
 	return b
+}
+
+func ExtractData(doc *goquery.Document) api.Appdolines {
+	records := extractData(doc)
+	sort.Sort(records)
+	var wg sync.WaitGroup
+	applications := api.NewApps()
+	for app, rec := range *records.SplitPerApps() {
+		applications.Add(app)
+		wg.Add(1)
+		go func(appli string, appRec api.Appdolines) {
+			defer wg.Done()
+			nodes := ChainNodesRecords(appRec)
+			fmt.Printf("Number of nodes for application %s: %d\n", appli, len(nodes))
+			// for k := range nodes {
+			// 	fmt.Printf("%s,", k)
+			// }
+			CheckDupe(appRec)
+		}(app, rec)
+	}
+	wg.Wait()
+	api.AddApps(applications)
+	return FilterDupe(records)
+}
+
+// ChainNodesRecords set the NextForNode pointer.
+// The given Appdolines must be time sorted.
+func ChainNodesRecords(records api.Appdolines) map[string]*api.Appdoline {
+
+	nodes := map[string]*api.Appdoline{}
+	nodeStart := map[string]*api.Appdoline{}
+
+	for i, r := range records {
+		if rec, ok := nodes[r.Host]; ok {
+			rec.NextForNode = records[i]
+			nodes[r.Host] = records[i]
+		} else {
+			nodeStart[r.Host] = records[i]
+			nodes[r.Host] = records[i]
+		}
+	}
+
+	return nodeStart
 }

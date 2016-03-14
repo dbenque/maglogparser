@@ -37,13 +37,15 @@ func AddApps(apps *Apps) {
 }
 
 type Appdoline struct {
-	When time.Time
-	App  string
-	Host string
-	User string
-	Task string
-	Cmd  string
-	Dupe bool
+	When        time.Time
+	App         string
+	Host        string
+	User        string
+	Task        string
+	Cmd         string
+	Dupe        bool
+	NextForNode *Appdoline
+	Link        string
 }
 
 func (a *Appdoline) Same(b *Appdoline) bool {
@@ -82,7 +84,7 @@ func (a Appdoline) Filter(f *Appdoline) bool {
 	return true
 }
 
-type Appdolines []Appdoline
+type Appdolines []*Appdoline
 
 func (a Appdolines) Len() int {
 	return len(a)
