@@ -113,7 +113,12 @@ func FilterDupe(records api.Appdolines) api.Appdolines {
 
 func ExtractData(doc *goquery.Document) api.Appdolines {
 	records := extractData(doc)
+	return prepareData(records)
+}
+
+func prepareData(records api.Appdolines) api.Appdolines {
 	sort.Sort(records)
+
 	var wg sync.WaitGroup
 	applications := api.NewApps()
 	for app, rec := range *records.SplitPerApps() {
@@ -131,6 +136,7 @@ func ExtractData(doc *goquery.Document) api.Appdolines {
 	}
 	wg.Wait()
 	api.AddApps(applications)
+	fmt.Printf("Applications: %v\n", api.GetApps())
 	return FilterDupe(records)
 }
 

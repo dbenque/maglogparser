@@ -110,11 +110,20 @@ func (a Appdolines) Filter(f *Appdoline) Appdolines {
 
 func (a Appdolines) SplitPerApps() *map[string]Appdolines {
 	m := map[string]Appdolines{}
-	for _, app := range appList {
-		f := a.Filter(&Appdoline{App: app})
-		if len(f) > 0 {
-			m[app] = f
+	// for _, app := range appList {
+	// 	f := a.Filter(&Appdoline{App: app})
+	// 	if len(f) > 0 {
+	// 		m[app] = f
+	// 	}
+	// }
+	for _, r := range a {
+		s, ok := m[r.App]
+		if !ok {
+			s = Appdolines{}
 		}
+		s = append(s, r)
+		m[r.App] = s
 	}
+
 	return &m
 }
