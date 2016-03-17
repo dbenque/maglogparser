@@ -46,6 +46,8 @@ type Appdoline struct {
 	Dupe        bool
 	NextForNode *Appdoline
 	Link        string
+	ReturnCode  int
+	DurationSec int
 }
 
 func (a *Appdoline) Same(b *Appdoline) bool {
@@ -66,7 +68,7 @@ func (a *Appdoline) Same(b *Appdoline) bool {
 	}
 	return true
 }
-func (a Appdoline) Filter(f *Appdoline) bool {
+func (a *Appdoline) Filter(f Appdoline) bool {
 
 	if f.Host != "" && strings.Compare(f.Host, a.Host) != 0 {
 		return false
@@ -98,15 +100,32 @@ func (a Appdolines) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (a Appdolines) Filter(f *Appdoline) Appdolines {
+func (a Appdolines) Filter(f Appdoline, reverse bool) Appdolines {
 	b := Appdolines{}
 	for _, x := range a {
-		if x.Filter(f) {
+		if x.Filter(f) != reverse { // X xor Y <-> X != Y
 			b = append(b, x)
 		}
 	}
 	return b
 }
+
+// func (a Appdolines) Filters(fs []Appdoline) Appdolines {
+// 	b := Appdolines{}
+// 	for _, x := range a {
+// 		fok := true
+// 		for _, f := range fs {
+// 			fok = x.Filter(f)
+// 			if !fok {
+// 				break
+// 			}
+// 		}
+// 		if fok {
+// 			b = append(b, x)
+// 		}
+// 	}
+// 	return b
+// }
 
 func (a Appdolines) SplitPerApps() *map[string]Appdolines {
 	m := map[string]Appdolines{}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -70,21 +71,26 @@ func extractData(doc *goquery.Document) api.Appdolines {
 			}
 		})
 
-		if len(vals) == 9 {
+		if len(vals) == 11 {
 			var line api.Appdoline
-			d, err := time.Parse("Mon Jan 2 15:04:05", vals[1])
-
+			d, err := time.Parse("2006-01-02 15:04:05", vals[1])
 			if err == nil {
 				line.When = d
-				line.App = vals[2]
-				line.Host = vals[4]
+				line.App = vals[3]
+				line.Host = vals[6]
 				line.User = vals[5]
-				line.Task = vals[6]
-				line.Cmd = vals[8]
+				line.Task = vals[4]
+				line.Cmd = vals[7]
+				line.ReturnCode, _ = strconv.Atoi(vals[9])
+				line.DurationSec, _ = strconv.Atoi(vals[10])
 				line.Dupe = false
 				line.Link = linkid
 				records = append(records, &line)
 				apps.Add(line.App)
+			}
+		} else {
+			if len(vals) > 1 {
+				fmt.Printf("\nTD Error: count=%d, TR.Text=%s\n", len(vals), s.Text())
 			}
 		}
 	})
@@ -92,24 +98,24 @@ func extractData(doc *goquery.Document) api.Appdolines {
 	return records
 }
 
-func CheckDupe(records api.Appdolines) {
-	for _, r := range records {
-		if r.NextForNode != nil && r.Link == r.NextForNode.Link {
-			r.NextForNode.Dupe = true
-			r.NextForNode = r.NextForNode.NextForNode
-		}
-	}
-}
-
-func FilterDupe(records api.Appdolines) api.Appdolines {
-	b := records[:0]
-	for _, x := range records {
-		if !x.Dupe {
-			b = append(b, x)
-		}
-	}
-	return b
-}
+// func CheckDupe(records api.Appdolines) {
+// 	for _, r := range records {
+// 		if r.NextForNode != nil && r.Link == r.NextForNode.Link {
+// 			r.NextForNode.Dupe = true
+// 			r.NextForNode = r.NextForNode.NextForNode
+// 		}
+// 	}
+// }
+//
+// func FilterDupe(records api.Appdolines) api.Appdolines {
+// 	b := records[:0]
+// 	for _, x := range records {
+// 		if !x.Dupe {
+// 			b = append(b, x)
+// 		}
+// 	}
+// 	return b
+// }
 
 func ExtractData(doc *goquery.Document) api.Appdolines {
 	records := extractData(doc)
@@ -126,18 +132,18 @@ func prepareData(records api.Appdolines) api.Appdolines {
 		wg.Add(1)
 		go func(appli string, appRec api.Appdolines) {
 			defer wg.Done()
-			nodes := ChainNodesRecords(appRec)
-			fmt.Printf("Number of nodes for application %s: %d\n", appli, len(nodes))
+			ChainNodesRecords(appRec)
+			//fmt.Printf("Number of nodes for application %s: %d\n", appli, len(nodes))
 			// for k := range nodes {
 			// 	fmt.Printf("%s,", k)
 			// }
-			CheckDupe(appRec)
+			//CheckDupe(appRec)
 		}(app, rec)
 	}
 	wg.Wait()
 	api.AddApps(applications)
-	fmt.Printf("Applications: %v\n", api.GetApps())
-	return FilterDupe(records)
+	//fmt.Printf("Applications: %v\n", api.GetApps())
+	return records //FilterDupe(records)
 }
 
 // ChainNodesRecords set the NextForNode pointer.

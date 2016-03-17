@@ -12,6 +12,7 @@ import (
 )
 import "time"
 
+//http://iaaweb.muc.amadeus.net/logviewer/index.php?start=Tuesday+2016-03-03&end=Tuesday+2016-03-03&start_time=00&end_time=24&phase=PRD&app=ape&user=undefined&host=undefined&task=undefined&all=1&table=appdo
 //http://iaaweb.muc.amadeus.net/cgi-bin/app_do_logviewer?action=set_filters&fromdate=2016+03+11&todate=2016+03+12&app=*&phase=PRD&host=*&user=*&task=*&display_mode=logs
 //&http.Client{CheckRedirect: nil}, nil
 
@@ -36,10 +37,10 @@ func buildURLs(start, end time.Time) map[string]string {
 	urls := map[string]string{}
 	for start.Before(end) {
 
-		d := start.Format("2006+01+02")
-		dd := start.Format("2006-01-02")
-		url := fmt.Sprintf("http://iaaweb.muc.amadeus.net/cgi-bin/app_do_logviewer?action=set_filters&fromdate=%s&todate=%s&app=*&phase=PRD&host=*&user=*&task=*&display_mode=logs", d, d)
-		urls[dd] = url
+		d := start.Format("2006-01-02")
+		url := fmt.Sprintf("http://iaaweb.muc.amadeus.net/logviewer/index.php?start=%s&end=%s&start_time=00&end_time=24&phase=PRD&app=undefined&user=undefined&host=undefined&task=undefined&all=1&table=appdo", d, d)
+		//url := fmt.Sprintf("http://iaaweb.muc.amadeus.net/cgi-bin/app_do_logviewer?action=set_filters&fromdate=%s&todate=%s&app=*&phase=PRD&host=*&user=*&task=*&display_mode=logs", d, d)
+		urls[d] = url
 		start = start.AddDate(0, 0, 1)
 	}
 
@@ -105,7 +106,7 @@ func FetchAppDoData(start, end string) api.Appdolines {
 					fmt.Println(err)
 					return
 				}
-				fmt.Printf("Adding %d records from %s\n", len(records), fHTML)
+				//fmt.Printf("Adding %d records from %s\n", len(records), fHTML)
 				dataChan <- records
 			} else {
 				b, err := ioutil.ReadFile(fJSON)
@@ -119,7 +120,7 @@ func FetchAppDoData(start, end string) api.Appdolines {
 					fmt.Println(err)
 					return
 				}
-				fmt.Printf("Adding %d records from %s\n", len(records), fJSON)
+				//fmt.Printf("Adding %d records from %s\n", len(records), fJSON)
 				dataChan <- records
 			}
 		}(d)
@@ -128,13 +129,8 @@ func FetchAppDoData(start, end string) api.Appdolines {
 	wg.Wait()
 	close(dataChan)
 	wgAppend.Wait()
+	return prepareData(data)
 
-	fmt.Printf("Count before prepare: %d\n", len(data))
-
-	preparedRecords := prepareData(data)
-	fmt.Printf("Count after prepare: %d\n", len(preparedRecords))
-
-	return preparedRecords
 }
 
 func fetchHTMLFile(path, url string) error {
