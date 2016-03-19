@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 	"sort"
@@ -10,33 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dbenque/maglogparser/utils"
-
 	tm "github.com/buger/goterm"
 )
 
-// var timeFormatFlag = flag.String("t", utils.DateFormat, "Time Format")
-// var preriodUnitFlag = flag.String("u", "second", "period [second|minute|hour|day]")
-// var preriodValueFlag = flag.Uint("p", 1, "Value of the period")
-
-var timeFormatFlag string
-var preriodUnitFlag string
-var preriodValueFlag uint
-var serieCountFlag uint
-var fileFlag string
-var noMaxFlag bool
-var noMinFlag bool
-var noAvgFlag bool
-
 func init() {
-	flag.StringVar(&timeFormatFlag, "t", utils.DateFormat, "Time Format")
-	flag.StringVar(&preriodUnitFlag, "u", "s", "Unit of the period")
-	flag.UintVar(&preriodValueFlag, "p", 1, "Value of the period")
-	flag.UintVar(&serieCountFlag, "c", 1, "Number of series")
-	flag.StringVar(&fileFlag, "f", "", "file to read")
-	flag.BoolVar(&noMaxFlag, "noMax", false, "Don't display Max")
-	flag.BoolVar(&noMaxFlag, "noMin", false, "Don't display Min")
-	flag.BoolVar(&noAvgFlag, "noAvg", false, "Don't display Avg")
+	InitFlags()
 }
 
 type TimeData struct {
@@ -67,13 +44,11 @@ func (a TimeDatas) Swap(i, j int) {
 
 func main() {
 
-	flag.Parse()
-	fmt.Printf("Time format: %s\nPeriod: %d%s\n", timeFormatFlag, preriodValueFlag, preriodUnitFlag)
-
-	if len(fileFlag) == 0 {
-		fmt.Println("file input mandatory")
+	if ParseFlags() != nil {
 		return
 	}
+
+	fmt.Printf("Time format: %s\nPeriod: %d%s\n", timeFormatFlag, preriodValueFlag, preriodUnitFlag)
 
 	freader, err := os.Open(fileFlag)
 	if err != nil {
@@ -190,13 +165,13 @@ func main() {
 
 	cparam := 1
 	if !noMaxFlag {
-		cparam += 1
+		cparam++
 	}
 	if !noMinFlag {
-		cparam += 1
+		cparam++
 	}
 	if !noAvgFlag {
-		cparam += 1
+		cparam++
 	}
 
 	for t := 0; t <= int(indexMax); t++ {
