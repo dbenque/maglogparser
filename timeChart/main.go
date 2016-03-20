@@ -4,42 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	tm "github.com/buger/goterm"
+	"github.com/dbenque/maglogparser/timeChart/timeChart"
 )
 
 func init() {
 	InitFlags()
-}
-
-type TimeData struct {
-	When   time.Time
-	Series []float64
-}
-
-type TimeDataAggregated struct {
-	Max   float64
-	Min   float64
-	Avg   float64
-	Count int
-}
-
-type TimeDatas []*TimeData
-
-func (a TimeDatas) Len() int {
-	return len(a)
-}
-
-func (a TimeDatas) Less(i, j int) bool {
-	return a[i].When.Before(a[j].When)
-}
-
-func (a TimeDatas) Swap(i, j int) {
-	a[i], a[j] = a[j], a[i]
 }
 
 func main() {
@@ -76,8 +49,7 @@ func main() {
 	}
 
 	periodSeconds = periodSeconds * int(periodValueFlag)
-
-	allData := TimeDatas{}
+	tc := timeChart.MakeChart(periodSeconds, timeFormatFlag, !noMaxFlag, !noMinFlag, !noAvgFlag)
 
 	scanner := bufio.NewScanner(freader)
 	for scanner.Scan() {
@@ -89,7 +61,7 @@ func main() {
 
 		dateStr := strings.Join(linesplit[0:len(linesplit)-int(serieCountFlag)], " ")
 
-		td := TimeData{}
+		td := timeChart.TimeData{}
 		var err error
 		if td.When, err = time.Parse(timeFormatFlag, dateStr); err != nil {
 			fmt.Println(err)
@@ -104,114 +76,15 @@ func main() {
 				td.Series = append(td.Series, 0.0)
 			}
 		}
-
-		allData = append(allData, &td)
-		//fmt.Printf("%#v\n", td)
+		tc.Add(&td)
 	}
+
+	tc.DataCompleted()
+
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error reading standard input:", err)
 	}
 
-	sort.Sort(allData)
-
-	t0 := allData[0].When
-	tmax := allData[len(allData)-1].When
-	indexMax := 0
-	for {
-		indexMax = (int(tmax.Sub(t0).Seconds()) / periodSeconds)
-		if indexMax > 250 {
-			periodSeconds = periodSeconds * 10
-			fmt.Printf("Adjust Period: %ds\n", periodSeconds)
-		} else {
-			break
-		}
-	}
-	fmt.Printf("%d\n", indexMax)
-	results := make([]TimeDataAggregated, indexMax+1)
-
-	for _, d := range allData {
-		index := int(d.When.Sub(t0).Seconds()) / periodSeconds
-		if results[index].Count == 0 {
-			results[index].Max = d.Series[0]
-			results[index].Min = d.Series[0]
-			results[index].Avg = d.Series[0]
-			results[index].Count = 1
-		} else {
-			if d.Series[0] > results[index].Max {
-				results[index].Max = d.Series[0]
-			}
-			if d.Series[0] < results[index].Min {
-				results[index].Min = d.Series[0]
-			}
-			results[index].Avg = (d.Series[0] + results[index].Avg*float64(results[index].Count)) / float64(results[index].Count+1)
-			results[index].Count = results[index].Count + 1
-		}
-	}
-
-	// Build chart
-	chart := tm.NewLineChart(tm.Width()-10, tm.Height()-10)
-	dataTable := new(tm.DataTable)
-
-	dataTable.AddColumn(fmt.Sprintf("From %s to %s using Block of %d seconds", t0.Format(timeFormatFlag), tmax.Format(timeFormatFlag), periodSeconds))
-	if !noMaxFlag {
-		dataTable.AddColumn("QMax")
-	}
-	if !noMinFlag {
-		dataTable.AddColumn("QMin")
-	}
-	if !noAvgFlag {
-		dataTable.AddColumn("QAvg")
-	}
-
-	cparam := 1
-	if !noMaxFlag {
-		cparam++
-	}
-	if !noMinFlag {
-		cparam++
-	}
-	if !noAvgFlag {
-		cparam++
-	}
-
-	for t := 0; t <= int(indexMax); t++ {
-		if results[t].Count != 0 {
-			ds := []float64{float64(t)}
-			if !noMaxFlag {
-				ds = append(ds, results[t].Max)
-			}
-			if !noMinFlag {
-				ds = append(ds, results[t].Min)
-			}
-			if !noAvgFlag {
-				ds = append(ds, results[t].Avg)
-			}
-
-			if cparam == 4 {
-				dataTable.AddRow(ds[0], ds[1], ds[2], ds[3])
-			}
-			if cparam == 3 {
-				dataTable.AddRow(ds[0], ds[1], ds[2])
-			}
-			if cparam == 2 {
-				dataTable.AddRow(ds[0], ds[1])
-			}
-
-			//fmt.Printf("Add: %f,%f,%f,%f\n", float64(t), results[t].Max, results[t].Min, results[t].Avg)
-		} else {
-			if cparam == 4 {
-				dataTable.AddRow(float64(t), 0, 0, 0)
-			}
-			if cparam == 3 {
-				dataTable.AddRow(float64(t), 0, 0)
-			}
-			if cparam == 2 {
-				dataTable.AddRow(float64(t), 0)
-			}
-		}
-	}
-
-	tm.Println(chart.Draw(dataTable))
-	tm.Flush()
+	tc.Draw()
 
 }
