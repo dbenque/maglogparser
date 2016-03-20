@@ -48,7 +48,7 @@ func main() {
 		return
 	}
 
-	fmt.Printf("Time format: %s\nPeriod: %d%s\n", timeFormatFlag, preriodValueFlag, preriodUnitFlag)
+	fmt.Printf("Time format: %s\nPeriod: %d%s\n", timeFormatFlag, periodValueFlag, periodUnitFlag)
 
 	freader, err := os.Open(fileFlag)
 	if err != nil {
@@ -60,7 +60,7 @@ func main() {
 
 	periodSeconds := 1
 
-	switch preriodUnitFlag {
+	switch periodUnitFlag {
 	case "minute":
 		periodSeconds = 60
 	case "hour":
@@ -75,7 +75,7 @@ func main() {
 		periodSeconds = 60 * 60 * 24
 	}
 
-	periodSeconds = periodSeconds * int(preriodValueFlag)
+	periodSeconds = periodSeconds * int(periodValueFlag)
 
 	allData := TimeDatas{}
 

@@ -10,8 +10,8 @@ import (
 )
 
 var timeFormatFlag string
-var preriodUnitFlag string
-var preriodValueFlag uint
+var periodUnitFlag string
+var periodValueFlag uint
 var serieCountFlag uint
 var fileFlag string
 var noMaxFlag bool
@@ -26,8 +26,8 @@ func InitFlags() {
 	mandatoryFlags.StringVar(&fileFlag, "f", "", "file to read")
 
 	optionalFlags = flag.NewFlagSet("Optional Flags", flag.ContinueOnError)
-	optionalFlags.StringVar(&preriodUnitFlag, "u", "s", "Unit of the period")
-	optionalFlags.UintVar(&preriodValueFlag, "p", 1, "Value of the period")
+	optionalFlags.StringVar(&periodUnitFlag, "u", "s", "Unit of the period")
+	optionalFlags.UintVar(&periodValueFlag, "p", 1, "Value of the period")
 	optionalFlags.UintVar(&serieCountFlag, "c", 1, "Number of series")
 	optionalFlags.BoolVar(&noMaxFlag, "noMax", false, "Don't display Max")
 	optionalFlags.BoolVar(&noMaxFlag, "noMin", false, "Don't display Min")
